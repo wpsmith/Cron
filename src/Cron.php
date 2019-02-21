@@ -10,21 +10,23 @@
  *
  * @package    WPS\Core
  * @author     Travis Smith <t@wpsmith.net>
- * @copyright  2015-2018 Travis Smith
+ * @copyright  2015-2019 Travis Smith
  * @license    http://opensource.org/licenses/gpl-2.0.php GNU Public License v2
  * @link       https://github.com/wpsmith/WPS
  * @version    1.0.0
  * @since      0.1.0
  */
 
-namespace WPS\Core;
+namespace WPS\WP;
+
+use WPS\Core\Singleton;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-if ( ! class_exists( 'WP_Cron' ) ) {
+if ( ! class_exists( __NAMESPACE__ . '\Cron' ) ) {
 	/**
 	 * WordPress Cron Class
 	 *
@@ -33,7 +35,7 @@ if ( ! class_exists( 'WP_Cron' ) ) {
 	 * @package WPS\Core
 	 * @author  Travis Smith <t@wpsmith.net>
 	 */
-	class WP_Cron extends Singleton {
+	class Cron extends Singleton {
 
 		/**
 		 * Cron name.
@@ -76,6 +78,7 @@ if ( ! class_exists( 'WP_Cron' ) ) {
 		 */
 		private $intervals = array(
 			'minute'  => MINUTE_IN_SECONDS,
+			'daily'   => DAY_IN_SECONDS,
 			'weekly'  => WEEK_IN_SECONDS,
 			'monthly' => MONTH_IN_SECONDS,
 			'yearly'  => YEAR_IN_SECONDS,
@@ -94,6 +97,13 @@ if ( ! class_exists( 'WP_Cron' ) ) {
 		 * @const string
 		 */
 		const MINUTE = 'minute';
+
+		/**
+		 * Daily schedule name
+		 *
+		 * @const string
+		 */
+		const DAILY = 'daily';
 
 		/**
 		 * Weekly schedule name
@@ -150,7 +160,8 @@ if ( ! class_exists( 'WP_Cron' ) ) {
 		 *
 		 * @return bool wp_get_schedules() contains the interval.
 		 */
-		private function has_interval() {
+		private function maybe_set_schedule_by_interval() {
+//		private function has_interval() {
 			$schedules = wp_get_schedules();
 			foreach ( $schedules as $name => $schedule ) {
 				if ( $schedule['interval'] === $this->interval ) {
@@ -172,46 +183,36 @@ if ( ! class_exists( 'WP_Cron' ) ) {
 		 */
 		private function maybe_add_cron_schedule( $interval_or_schedule ) {
 
-			// If $interval_or_schedule is a string and not numeric, then let's see if it represents any known time length.
-			if ( is_string( $interval_or_schedule ) && ! is_numeric( $interval_or_schedule ) ) {
-				switch ( $interval_or_schedule ) {
-					case self::MINUTE:
-						$interval_or_schedule = $this->get_schedule( self::MINUTE, MINUTE_IN_SECONDS );
-						break;
-					case self::WEEKLY:
-						$interval_or_schedule = $this->get_schedule( self::WEEKLY, WEEK_IN_SECONDS );
-						break;
-					case self::MONTHLY:
-						$interval_or_schedule = $this->get_schedule( self::MONTHLY, MONTH_IN_SECONDS );
-						break;
-					case self::YEARLY:
-						$interval_or_schedule = $this->get_schedule( self::YEARLY, YEAR_IN_SECONDS );
-						break;
-				}
-
-				// If $interval_or_schedule is numeric, then let's assume it is the interval.
-			} elseif ( is_numeric( $interval_or_schedule ) ) {
+			if ( is_numeric( $interval_or_schedule ) ) {
 				$this->interval = $interval_or_schedule;
+				$this->maybe_set_schedule_by_interval();
 
-				if ( ! $this->has_interval() ) {
-					switch ( $interval_or_schedule ) {
-						case MINUTE_IN_SECONDS:
-							$interval_or_schedule = $this->get_schedule( self::MINUTE, MINUTE_IN_SECONDS );
-							break;
-						case WEEK_IN_SECONDS:
-							$interval_or_schedule = $this->get_schedule( self::WEEKLY, WEEK_IN_SECONDS );
-							break;
-						case MONTH_IN_SECONDS:
-							$interval_or_schedule = $this->get_schedule( self::MONTHLY, MONTH_IN_SECONDS );
-							break;
-						case YEAR_IN_SECONDS:
-							$interval_or_schedule = $this->get_schedule( self::YEARLY, YEAR_IN_SECONDS );
-							break;
-					}
-				}
 			} elseif ( is_array( $interval_or_schedule ) && isset( $interval_or_schedule['interval'] ) ) {
 				// Sanitize 'interval'.
 				$interval_or_schedule['interval'] = $this->get_interval( $interval_or_schedule['interval'] );
+			}
+
+			switch ( $interval_or_schedule ) {
+				case self::MINUTE:
+				case MINUTE_IN_SECONDS:
+					$interval_or_schedule = $this->get_schedule( self::MINUTE, MINUTE_IN_SECONDS );
+					break;
+				case self::DAILY:
+				case DAY_IN_SECONDS:
+					$interval_or_schedule = $this->get_schedule( self::DAILY, DAY_IN_SECONDS );
+					break;
+				case self::WEEKLY:
+				case WEEK_IN_SECONDS:
+					$interval_or_schedule = $this->get_schedule( self::WEEKLY, WEEK_IN_SECONDS );
+					break;
+				case self::MONTHLY:
+				case MONTH_IN_SECONDS:
+					$interval_or_schedule = $this->get_schedule( self::MONTHLY, MONTH_IN_SECONDS );
+					break;
+				case self::YEARLY:
+				case YEAR_IN_SECONDS:
+					$interval_or_schedule = $this->get_schedule( self::YEARLY, YEAR_IN_SECONDS );
+					break;
 			}
 
 			// Now we should have a sanitized schedule in $interval_or_schedule.
@@ -225,6 +226,69 @@ if ( ! class_exists( 'WP_Cron' ) ) {
 				}
 				add_filter( 'cron_schedules', array( $this, 'add_cron_schedule' ) );
 			}
+
+
+//			// If $interval_or_schedule is a string and not numeric, then let's see if it represents any known time length.
+//			if ( is_string( $interval_or_schedule ) && ! is_numeric( $interval_or_schedule ) ) {
+//				switch ( $interval_or_schedule ) {
+//					case self::MINUTE:
+//					case MINUTE_IN_SECONDS:
+//					$interval_or_schedule = $this->get_schedule( self::MINUTE, MINUTE_IN_SECONDS );
+//						break;
+//					case self::DAILY:
+//					case DAY_IN_SECONDS:
+//					$interval_or_schedule = $this->get_schedule( self::DAILY, DAY_IN_SECONDS );
+//					break;
+//					case self::WEEKLY:
+//					case WEEK_IN_SECONDS:
+//					$interval_or_schedule = $this->get_schedule( self::WEEKLY, WEEK_IN_SECONDS );
+//						break;
+//					case self::MONTHLY:
+//					case MONTH_IN_SECONDS:
+//						$interval_or_schedule = $this->get_schedule( self::MONTHLY, MONTH_IN_SECONDS );
+//						break;
+//					case self::YEARLY:
+//					case YEAR_IN_SECONDS:
+//						$interval_or_schedule = $this->get_schedule( self::YEARLY, YEAR_IN_SECONDS );
+//						break;
+//				}
+//
+//				// If $interval_or_schedule is numeric, then let's assume it is the interval.
+//			} elseif ( is_numeric( $interval_or_schedule ) ) {
+//				$this->interval = $interval_or_schedule;
+//
+//				if ( ! $this->has_interval() ) {
+//					switch ( $interval_or_schedule ) {
+//						case MINUTE_IN_SECONDS:
+//							$interval_or_schedule = $this->get_schedule( self::MINUTE, MINUTE_IN_SECONDS );
+//							break;
+//						case WEEK_IN_SECONDS:
+//							$interval_or_schedule = $this->get_schedule( self::WEEKLY, WEEK_IN_SECONDS );
+//							break;
+//						case MONTH_IN_SECONDS:
+//							$interval_or_schedule = $this->get_schedule( self::MONTHLY, MONTH_IN_SECONDS );
+//							break;
+//						case YEAR_IN_SECONDS:
+//							$interval_or_schedule = $this->get_schedule( self::YEARLY, YEAR_IN_SECONDS );
+//							break;
+//					}
+//				}
+//			} elseif ( is_array( $interval_or_schedule ) && isset( $interval_or_schedule['interval'] ) ) {
+//				// Sanitize 'interval'.
+//				$interval_or_schedule['interval'] = $this->get_interval( $interval_or_schedule['interval'] );
+//			}
+//
+//			// Now we should have a sanitized schedule in $interval_or_schedule.
+//			// If $interval_or_schedule is an schedule array, then let's hook into `cron_schedules`.
+//			if ( is_array( $interval_or_schedule ) ) {
+//				if ( empty( $this->schedule ) ) {
+//					$this->schedule = $interval_or_schedule;
+//				}
+//				if ( 0 === $this->interval || null === $this->interval ) {
+//					$this->interval = $interval_or_schedule['interval'];
+//				}
+//				add_filter( 'cron_schedules', array( $this, 'add_cron_schedule' ) );
+//			}
 		}
 
 		/**
@@ -268,13 +332,18 @@ if ( ! class_exists( 'WP_Cron' ) ) {
 					'display'  => $this->schedule['display'],
 				);
 
-				// If it is already set, let's check the interval
+				// If it is already set, ltest.et's check the interval
 				// If the intervals do not match, let's create the cron with a different schedule name.
 			} elseif (
-				isset( $schedules[ $this->schedule['name'] ] ) &&
-				$schedules[ $this->schedule['name'] ]['interval'] !== $this->schedule['name']['interval']
+				(
+					isset( $schedules[ $this->schedule['name'] ] ) &&
+					! isset( $schedules[ $this->schedule['name'] ]['interval'] ) ) ||
+				(
+					isset( $schedules[ $this->schedule['name'] ] ) &&
+					$schedules[ $this->schedule['name'] ]['interval'] !== $this->schedule['interval']
+				)
 			) {
-				$this->schedule['name']               = $this->schedule['name'] . '-' . $this->schedule['name']['interval'];
+				$this->schedule['name']               = $this->schedule['name'] . '-' . $this->schedule['interval'];
 				$schedules[ $this->schedule['name'] ] = array(
 					'interval' => $this->schedule['interval'],
 					'display'  => $this->schedule['display'],
@@ -294,6 +363,7 @@ if ( ! class_exists( 'WP_Cron' ) ) {
 		private function get_interval( $interval ) {
 			switch ( $interval ) {
 				case 'minute':
+				case 'daily':
 				case 'weekly':
 				case 'monthly':
 				case 'yearly':
@@ -348,5 +418,3 @@ if ( ! class_exists( 'WP_Cron' ) ) {
 
 	}
 }
-
-
