@@ -20,8 +20,8 @@
     "issues": "https://github.com/wpsmith/Cron/issues"
   },
   "require": {
-    "php": ">=5.6.0",
-    "wpsmith/functions": "^1.0.0"
+    "php": ">=7.2.0",
+    "wpsmith/functions": "^1.0.0",
     "wpsmith/singleton": "^1.0.0"
   },
   "autoload": {
